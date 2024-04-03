@@ -1,5 +1,6 @@
 import os
 import pickle
+from pathlib import Path
 from typing import Iterator, Optional, List, Sized, Union, Iterable, Any
 import numpy as np
 from ..data_basic import Dataset
@@ -22,7 +23,23 @@ class CIFAR10Dataset(Dataset):
         y - numpy array of labels
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        base = Path(base_folder)
+        if train:
+            data = []
+            labels = []
+            for i in range(1, 6):
+                with (base / f"data_batch_{i}").open("rb") as f:
+                    d = pickle.load(f, encoding="bytes")
+                data.append(d[b"data"])
+                labels.extend(d[b"labels"])
+            self.data = np.reshape(data, (50000, 3, 32, 32)).astype(np.float32) / 255
+            self.labels = np.array(labels)
+        else:
+            with (base / "test_batch").open("rb") as f:
+                d = pickle.load(f, encoding="bytes")
+            self.data = np.reshape(d[b"data"], (10000, 3, 32, 32)).astype(np.float32) / 255
+            self.labels = np.array(d[b"labels"])
+        self.transforms = transforms
         ### END YOUR SOLUTION
 
     def __getitem__(self, index) -> object:
@@ -31,7 +48,11 @@ class CIFAR10Dataset(Dataset):
         Image should be of shape (3, 32, 32)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        x, y = self.data[index], self.labels[index]
+        if self.transforms:
+            for transform in self.transforms:
+                x = transform(x)
+        return x, y
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:
@@ -39,5 +60,5 @@ class CIFAR10Dataset(Dataset):
         Returns the total number of examples in the dataset
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return self.data.shape[0]
         ### END YOUR SOLUTION

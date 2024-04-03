@@ -148,8 +148,10 @@ STACK_PARAMETERS = [((5, 5), 0, 1),
 @pytest.mark.parametrize("shape, axis, l", STACK_PARAMETERS)
 @pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
 def test_stack(shape, axis, l, device):
+    print(device.__device_name__)
     _A = [np.random.randn(*shape).astype(np.float32) for i in range(l)]
     A = [ndl.Tensor(nd.array(_A[i]), device=device) for i in range(l)]
+    print(A[0].device)
     A_t = [torch.Tensor(_A[i]) for i in range(l)]
     out = ndl.stack(A, axis=axis)
     out_t = torch.stack(A_t, dim=axis)

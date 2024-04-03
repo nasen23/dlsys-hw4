@@ -5,7 +5,8 @@ from ..autograd import TensorTuple, TensorTupleOp
 
 from .ops_mathematic import *
 
-from ..backend_selection import array_api, BACKEND 
+from ..backend_selection import array_api, BACKEND
+
 
 class LogSoftmax(TensorOp):
     def compute(self, Z):
@@ -25,12 +26,20 @@ def logsoftmax(a):
 
 class LogSumExp(TensorOp):
     def __init__(self, axes: Optional[tuple] = None):
-        self.axes = axes
+        if isinstance(axes, int):
+            self.axes = (axes,)
+        else:
+            self.axes = axes
 
     def compute(self, Z):
         ### BEGIN YOUR SOLUTION
         Z_max = Z.max(axis=self.axes)
-        shape = tuple(1 if self.axes is None or i in self.axes or i - len(Z.shape) in self.axes else s for i, s in enumerate(Z.shape))
+        shape = tuple(
+            1
+            if self.axes is None or i in self.axes or i - len(Z.shape) in self.axes
+            else s
+            for i, s in enumerate(Z.shape)
+        )
         Z_max_broadcast = array_api.broadcast_to(Z_max.reshape(shape), Z.shape)
         Z_exp = array_api.exp(Z - Z_max_broadcast)
         return array_api.log(array_api.sum(Z_exp, axis=self.axes)) + Z_max
@@ -41,7 +50,12 @@ class LogSumExp(TensorOp):
         # Manually deriving this is so hard
         Z = node.inputs[0].realize_cached_data()
         Z_max = Z.max(axis=self.axes)
-        shape = tuple(1 if self.axes is None or i in self.axes or i - len(Z.shape) in self.axes else s for i, s in enumerate(Z.shape))
+        shape = tuple(
+            1
+            if self.axes is None or i in self.axes or i - len(Z.shape) in self.axes
+            else s
+            for i, s in enumerate(Z.shape)
+        )
         Z_max_broadcast = array_api.broadcast_to(Z_max.reshape(shape), Z.shape)
         Z_minus = Z - Z_max_broadcast
         # summing
@@ -55,4 +69,3 @@ class LogSumExp(TensorOp):
 
 def logsumexp(a, axes=None):
     return LogSumExp(axes=axes)(a)
-

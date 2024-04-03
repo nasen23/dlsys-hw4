@@ -571,11 +571,11 @@ class NDArray:
             axes_before = [a for a in range(self.ndim) if a not in axes]
             shapes_before = [self.shape[a] for a in axes_before]
             permute_out = tuple(axes_before + list(axes))
-            view = self.permute(permute_out).reshape(tuple(shapes_before + [size]))
+            view = self.permute(permute_out).compact().reshape(tuple(shapes_before + [size]))
             out = NDArray.make(
-                tuple([1 if i == axis else s for i, s in enumerate(self.shape)])
+                tuple([1 if i in axes else s for i, s in enumerate(self.shape)])
                 if keepdims else
-                tuple([s for i, s in enumerate(self.shape) if i != axis]),
+                tuple([s for i, s in enumerate(self.shape) if i not in axes]),
                 device=self.device,
             )
         return view, out
@@ -606,7 +606,11 @@ class NDArray:
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = tuple(s + t[0] + t[1] for t, s in zip(axes, self.shape))
+        out = empty(new_shape, dtype=self.dtype, device=self.device)
+        slices = tuple(slice(t[0], t[0] + s) for t, s in zip(axes, self.shape))
+        out[slices] = self
+        return out
         ### END YOUR SOLUTION
 
 def array(a, dtype="float32", device=None):

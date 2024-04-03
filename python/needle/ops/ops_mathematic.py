@@ -224,7 +224,10 @@ def broadcast_to(a, shape):
 
 class Summation(TensorOp):
     def __init__(self, axes: Optional[tuple] = None):
-        self.axes = axes
+        if isinstance(axes, int):
+            self.axes = (axes,)
+        else:
+            self.axes = axes
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
@@ -234,12 +237,15 @@ class Summation(TensorOp):
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
         shape = list(node.inputs[0].shape)
-        if self.axes:
+        # print("input:", shape)
+        # print("grad:", out_grad.shape)
+        # print("axis:", self.axes)
+        if self.axes is None:
+            shape = (1,) * len(node.inputs[0].shape)
+        else:
             for axis in self.axes:
                 shape[axis] = 1
             shape = tuple(shape)
-        else:
-            shape = (1,) * len(node.inputs[0].shape)
         return out_grad.reshape(shape).broadcast_to(node.inputs[0].shape)
         ### END YOUR SOLUTION
 
@@ -369,7 +375,7 @@ class Stack(TensorOp):
             assert a.shape == shape, "All arrays need to be of the same size."
         new_shape = list(shape)
         new_shape.insert(self.axis, len(args))
-        out = array_api.empty(new_shape)
+        out = array_api.empty(new_shape, device=args[0].device)
         slices = [slice(0, s) for s in new_shape]
         for i, arg in enumerate(args):
             slices[self.axis] = slice(i, i + 1)
@@ -401,10 +407,11 @@ class Split(TensorTupleOp):
     def compute(self, A):
         ### BEGIN YOUR SOLUTION
         slices = [slice(0, s) for s in A.shape]
+        shape = tuple(s for i, s in enumerate(A.shape) if i != self.axis)
         out = []
         for i in range(A.shape[self.axis]):
-            slices[self.axis] = slice(i)
-            out.append(A[slices][0])
+            slices[self.axis] = slice(i, i + 1)
+            out.append(A[tuple(slices)].compact().reshape(shape))
         return tuple(out)
         ### END YOUR SOLUTION
 
