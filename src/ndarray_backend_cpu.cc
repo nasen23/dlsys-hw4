@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <limits>
 
 namespace needle {
 namespace cpu {
@@ -44,6 +45,20 @@ void Fill(AlignedArray* out, scalar_t val) {
 }
 
 
+bool increment_stride_vec(std::vector<int32_t>& x, const std::vector<int32_t>& shape) {
+  for (size_t i = shape.size() - 1; i >= 0; i--) {
+    if (x[i] < shape[i] - 1) {
+      x[i]++;
+      break;
+    }
+    x[i] = 0;
+    if (i == 0) {
+      return false; // cont = false
+    }
+  }
+  return true;
+}
+
 
 void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shape,
              std::vector<int32_t> strides, size_t offset) {
@@ -62,7 +77,15 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  function will implement here, so we won't repeat this note.)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  std::vector<int32_t> x(shape.size(), 0);
+  size_t cnt = 0;
+  do {
+    size_t idx = offset;
+    for (size_t i = 0; i < shape.size(); i++) {
+      idx += x[i] * strides[i];
+    }
+    out->ptr[cnt++] = a.ptr[idx];
+  } while (increment_stride_vec(x, shape));
   /// END SOLUTION
 }
 
@@ -79,7 +102,15 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  std::vector<int32_t> x(shape.size(), 0);
+  size_t cnt = 0;
+  do {
+    size_t idx = offset;
+    for (size_t i = 0; i < shape.size(); i++) {
+      idx += x[i] * strides[i];
+    }
+    out->ptr[idx] = a.ptr[cnt++];
+  } while (increment_stride_vec(x, shape));
   /// END SOLUTION
 }
 
@@ -100,7 +131,14 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  std::vector<int32_t> x(shape.size(), 0);
+  do {
+    size_t idx = offset;
+    for (size_t i = 0; i < shape.size(); i++) {
+      idx += x[i] * strides[i];
+    }
+    out->ptr[idx] = val;
+  } while (increment_stride_vec(x, shape));
   /// END SOLUTION
 }
 
@@ -144,6 +182,86 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
  */
 
 
+template<typename BinaryOp>
+void EwiseBinaryApply(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  for (size_t i = 0; i < a.size; i++) {
+    out->ptr[i] = BinaryOp::apply(a.ptr[i], b.ptr[i]);
+  }
+}
+
+
+template<typename BinaryOp>
+void ScalarApply(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  for (size_t i = 0; i < a.size; i++) {
+    out->ptr[i] = BinaryOp::apply(a.ptr[i], val);
+  }
+}
+
+
+template<typename UnaryOp>
+void EwiseUnaryApply(const AlignedArray& a, AlignedArray* out) {
+  for (size_t i = 0; i < a.size; i++) {
+    out->ptr[i] = UnaryOp::apply(a.ptr[i]);
+  }
+}
+
+
+// Operators
+struct MulOp {
+  static inline scalar_t apply(scalar_t a, scalar_t b) {
+    return a * b;
+  }
+};
+
+struct DivOp {
+  static inline scalar_t apply(scalar_t a, scalar_t b) {
+    return a / b;
+  }
+};
+
+struct PowerOp {
+  static inline scalar_t apply(scalar_t a, scalar_t b) {
+    return std::pow(a, b);
+  }
+};
+
+struct MaximumOp {
+  static inline scalar_t apply(scalar_t a, scalar_t b) {
+    return std::max(a, b);
+  }
+};
+
+struct EqOp {
+  static inline scalar_t apply(scalar_t a, scalar_t b) {
+    return scalar_t(a == b);
+  }
+};
+
+struct GeOp {
+  static inline scalar_t apply(scalar_t a, scalar_t b) {
+    return scalar_t(a >= b);
+  }
+};
+
+struct LogOp {
+  static inline scalar_t apply(scalar_t a) {
+    return std::log(a);
+  }
+};
+
+struct ExpOp {
+  static inline scalar_t apply(scalar_t a) {
+    return std::exp(a);
+  }
+};
+
+struct TanhOp {
+  static inline scalar_t apply(scalar_t a) {
+    return std::tanh(a);
+  }
+};
+
+
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
             uint32_t p) {
   /**
@@ -160,7 +278,14 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uin
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i = 0; i < m; i++) {
+    for (size_t j = 0; j < p; j++) {
+      out->ptr[i * p + j] = 0;
+      for (size_t k = 0; k < n; k++) {
+        out->ptr[i * p + j] += a.ptr[i * n + k] * b.ptr[k * p + j];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -190,7 +315,15 @@ inline void AlignedDot(const float* __restrict__ a,
   out = (float*)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i = 0; i < TILE; i++) {
+    for (size_t j = 0; j < TILE; j++) {
+      scalar_t sum = 0;
+      for (size_t k = 0; k < TILE; k++) {
+        sum += a[i * TILE + k] * b[k * TILE + j];
+      }
+      out[i * TILE + j] += sum;
+    }
+  }
   /// END SOLUTION
 }
 
@@ -216,7 +349,18 @@ void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out
    *
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i = 0; i < m / TILE; i++) {
+    const float *a_rows = a.ptr + i * n * TILE;
+    for (size_t j = 0; j < p / TILE; j++) {
+      float* out_tile = out->ptr + (i * p * TILE + j * TILE * TILE);
+      std::memset(out_tile, .0f, TILE * TILE * ELEM_SIZE);
+      for (size_t k = 0; k < n / TILE; k++) {
+        const float* a_tile = a_rows + k * TILE * TILE;
+        const float* b_tile = b.ptr + (k * p * TILE + j * TILE * TILE);
+        AlignedDot(a_tile, b_tile, out_tile);
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -231,7 +375,14 @@ void ReduceMax(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  size_t j = 0;
+  for (size_t i = 0; i < a.size; i += reduce_size) {
+    scalar_t max_val = a.ptr[i];
+    for (size_t k = i + 1; k < i + reduce_size; k++) {
+      max_val = std::max(max_val, a.ptr[k]);
+    }
+    out->ptr[j++] = max_val;
+  }
   /// END SOLUTION
 }
 
@@ -246,7 +397,14 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  size_t j = 0;
+  for (size_t i = 0; i < a.size; i += reduce_size) {
+    scalar_t sum = 0;
+    for (size_t k = i; k < i + reduce_size; k++) {
+      sum += a.ptr[k];
+    }
+    out->ptr[j++] = sum;
+  }
   /// END SOLUTION
 }
 
@@ -288,22 +446,22 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
 
-  m.def("ewise_mul", EwiseMul);
-  m.def("scalar_mul", ScalarMul);
-  m.def("ewise_div", EwiseDiv);
-  m.def("scalar_div", ScalarDiv);
-  m.def("scalar_power", ScalarPower);
+  m.def("ewise_mul", EwiseBinaryApply<MulOp>);
+  m.def("scalar_mul", ScalarApply<MulOp>);
+  m.def("ewise_div", EwiseBinaryApply<DivOp>);
+  m.def("scalar_div", ScalarApply<DivOp>);
+  m.def("scalar_power", ScalarApply<PowerOp>);
 
-  m.def("ewise_maximum", EwiseMaximum);
-  m.def("scalar_maximum", ScalarMaximum);
-  m.def("ewise_eq", EwiseEq);
-  m.def("scalar_eq", ScalarEq);
-  m.def("ewise_ge", EwiseGe);
-  m.def("scalar_ge", ScalarGe);
+  m.def("ewise_maximum", EwiseBinaryApply<MaximumOp>);
+  m.def("scalar_maximum", ScalarApply<MaximumOp>);
+  m.def("ewise_eq", EwiseBinaryApply<EqOp>);
+  m.def("scalar_eq", ScalarApply<EqOp>);
+  m.def("ewise_ge", EwiseBinaryApply<GeOp>);
+  m.def("scalar_ge", ScalarApply<GeOp>);
 
-  m.def("ewise_log", EwiseLog);
-  m.def("ewise_exp", EwiseExp);
-  m.def("ewise_tanh", EwiseTanh);
+  m.def("ewise_log", EwiseUnaryApply<LogOp>);
+  m.def("ewise_exp", EwiseUnaryApply<ExpOp>);
+  m.def("ewise_tanh", EwiseUnaryApply<TanhOp>);
 
   m.def("matmul", Matmul);
   m.def("matmul_tiled", MatmulTiled);
