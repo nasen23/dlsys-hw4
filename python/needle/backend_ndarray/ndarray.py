@@ -559,12 +559,19 @@ class NDArray:
 
         else:
             if isinstance(axis, (tuple, list)):
-                assert len(axis) == 1, "Only support reduction over a single axis"
-                axis = axis[0]
+                # assert len(axis) == 1, "Only support reduction over a single axis"
+                # axis = axis[0]
+                axes = axis
+            else:
+                axes = [axis]
 
-            view = self.permute(
-                tuple([a for a in range(self.ndim) if a != axis]) + (axis,)
-            )
+            # put these axes to last and flatten them
+            shapes = [self.shape[axis] for axis in axes]
+            size = reduce(operator.mul, shapes, 1)
+            axes_before = [a for a in range(self.ndim) if a not in axes]
+            shapes_before = [self.shape[a] for a in axes_before]
+            permute_out = tuple(axes_before + list(axes))
+            view = self.permute(permute_out).reshape(tuple(shapes_before + [size]))
             out = NDArray.make(
                 tuple([1 if i == axis else s for i, s in enumerate(self.shape)])
                 if keepdims else
