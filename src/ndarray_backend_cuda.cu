@@ -11,7 +11,6 @@ namespace cuda {
 
 #define BASE_THREAD_NUM 256
 
-#define TILE 4
 typedef float scalar_t;
 const size_t ELEM_SIZE = sizeof(scalar_t);
 
@@ -349,76 +348,66 @@ struct TanhOp {
 ////////////////////////////////////////////////////////////////////////////////
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
-const size_t L = 64, S = 64, V = 4; // Tune these parameters
-// V = 2 would cause a launchOutOfResources error (too many threads)
+#define BLOCK_SIZE 64
+#define TILE 4
 
 __global__ void MatmulKernel(const scalar_t* A, const scalar_t* B, scalar_t* out, uint32_t M, uint32_t N, uint32_t P) {
-  __shared__ scalar_t sA[S][L];
-  __shared__ scalar_t sB[S][L];
+  __shared__ scalar_t sA[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ scalar_t sB[BLOCK_SIZE][BLOCK_SIZE];
   size_t x_block = blockIdx.x;
   size_t y_block = blockIdx.y;
-  scalar_t a[V];
-  scalar_t b[V];
-  scalar_t c[V][V] = {0}; // only for this thread
+  scalar_t a[TILE];
+  scalar_t b[TILE];
+  scalar_t c[TILE][TILE] = {0}; // only for this thread
 
-  for (size_t i = 0; i < N; i += S) {
-    __syncthreads();
-    // thread cooperative fetching into sA and sB here
-    // a[y_block * L : y_block * L + L, i : i + S].T -> sA
-    // b[i : i + S, x_block * L : x_block * L + L] -> sB
+  for (size_t i = 0; i < N; i += BLOCK_SIZE) {
     size_t nthreads = blockDim.x * blockDim.y;
     size_t tid = threadIdx.y * blockDim.x + threadIdx.x;
-    for (size_t j = 0; j < (S * L + nthreads - 1) / nthreads; j++) {
-      size_t y = (j * nthreads + tid) / L;
-      size_t x = (j * nthreads + tid) % L;
-      // might be too hard to get right
-      // block might be out of bounds, need to pad with 0
-      if (i + y >= N) { // out of bounds access
-        sA[y][x] = 0;
-        sB[y][x] = 0;
-        continue;
-      }
-      if (y_block * L + x < M) {
-        // How to understand this index?
-        // sA[y][x] = A[y_block * L : y_block * L + L, i : i + S].T[y, x]
-        // = A[y_block * L : y_block * L + L, i : i + S][x, y]
-        // = A[y_block * L + x, i + y]
-        // With constraint y_block * L + x < M
-        sA[y][x] = A[(y_block * L + x) * N + i + y];
+    for (size_t loadOffset = 0; loadOffset < BLOCK_SIZE * BLOCK_SIZE; loadOffset += nthreads) {
+      size_t y = (loadOffset + tid) / BLOCK_SIZE;
+      size_t x = (loadOffset + tid) % BLOCK_SIZE;
+      if (y_block * BLOCK_SIZE + y < M && i + x < N) {
+        sA[x][y] = A[(y_block * BLOCK_SIZE + y) * N + i + x];
       } else {
-        sA[y][x] = 0;
+        sA[x][y] = 0;
       }
-      if (x_block * L + x < P) {
-        sB[y][x] = B[(i + y) * P + x_block * L + x];
+    }
+    for (size_t loadOffset = 0; loadOffset < BLOCK_SIZE * BLOCK_SIZE; loadOffset += nthreads) {
+      size_t y = (loadOffset + tid) / BLOCK_SIZE;
+      size_t x = (loadOffset + tid) % BLOCK_SIZE;
+      if (x_block * BLOCK_SIZE + x < P && i + y < N) {
+        sB[y][x] = B[(i + y) * P + x_block * BLOCK_SIZE + x];
       } else {
         sB[y][x] = 0;
       }
     }
     __syncthreads();
-    for (size_t k = 0; k < S; k++) {
+    for (size_t k = 0; k < BLOCK_SIZE; k++) {
       // get kth row from sA and sB
-      // sA[k, y * V : y * V + V] -> a
-      // sB[k, x * V : x * V + V] -> b
-      for (size_t j = 0; j < V; j++) {
-        a[j] = sA[k][threadIdx.y * V + j];
+      // sA[k, y * TILE : y * TILE + TILE] -> a
+      // sB[k, x * TILE : x * TILE + TILE] -> b
+      // threadIdx.y * TILE < BLOCK_SIZE
+      for (size_t j = 0; j < TILE; j++) {
+        a[j] = sA[k][threadIdx.y * TILE + j];
       }
-      for (size_t j = 0; j < V; j++) {
-        b[j] = sB[k][threadIdx.x * V + j];
+      for (size_t j = 0; j < TILE; j++) {
+        b[j] = sB[k][threadIdx.x * TILE + j];
       }
       // multiply them together
-      for (size_t y = 0; y < V; y++) {
-        for (size_t x = 0; x < V; x++) {
+      for (size_t y = 0; y < TILE; y++) {
+        for (size_t x = 0; x < TILE; x++) {
           c[y][x] += a[y] * b[x];
         }
       }
     }
+    __syncthreads();
   }
 
-  size_t y_base = y_block * L + threadIdx.y * V;
-  size_t x_base = x_block * L + threadIdx.x * V;
-  for (size_t i = y_base; i < min(y_base + V, size_t(M)); i++) {
-    for (size_t j = x_base; j < min(x_base + V, size_t(P)); j++) {
-      out[i * P + j] = c[i - y_base][j - x_base];
+  size_t y_base = y_block * BLOCK_SIZE + threadIdx.y * TILE;
+  size_t x_base = x_block * BLOCK_SIZE + threadIdx.x * TILE;
+  for (size_t y = 0; y < TILE && y_base + y < size_t(M); y++) {
+    for (size_t x = 0; x < TILE && x_base + x < size_t(P); x++) {
+      out[(y_base + y) * P + (x_base + x)] = c[y][x];
     }
   }
 }
@@ -448,11 +437,11 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    */
 
   /// BEGIN SOLUTION
-  size_t by = max((M + L - 1) / L, (P + L - 1) / L);
-  size_t bx = (N + S - 1) / S;
-  dim3 numBlocks(by, bx);
-  dim3 threadsPerBlock(L / V, L / V);
-  MatmulKernel<<<numBlocks, threadsPerBlock>>>(a.ptr, b.ptr, out->ptr, M, N, P);
+  size_t by = (M + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  size_t bx = (P + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  dim3 grid(bx, by);
+  dim3 block(BLOCK_SIZE / TILE, BLOCK_SIZE / TILE);
+  MatmulKernel<<<grid, block>>>(a.ptr, b.ptr, out->ptr, M, N, P);
   /// END SOLUTION
 }
 
