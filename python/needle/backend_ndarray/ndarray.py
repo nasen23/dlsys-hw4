@@ -611,7 +611,7 @@ class NDArray:
         """
         ### BEGIN YOUR SOLUTION
         new_shape = tuple(s + t[0] + t[1] for t, s in zip(axes, self.shape))
-        out = empty(new_shape, dtype=self.dtype, device=self.device)
+        out = full(new_shape, 0, dtype=self.dtype, device=self.device)
         slices = tuple(slice(t[0], t[0] + s) for t, s in zip(axes, self.shape))
         out[slices] = self
         return out

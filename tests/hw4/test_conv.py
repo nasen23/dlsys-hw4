@@ -440,11 +440,10 @@ def test_op_conv(Z_shape, W_shape, stride, padding, backward, device):
         out2.backward()
     if backward:
         err1 = np.linalg.norm(Ztch.grad.numpy() - Z.grad.numpy())
-        err2 = np.linalg.norm(Wtch.grad.numpy() - W.grad.numpy())
-    err3 = np.linalg.norm(out2.detach().numpy() - y2.numpy())
-    if backward:
         assert err1 < 1e-2, "input grads match"
+        err2 = np.linalg.norm(Wtch.grad.numpy() - W.grad.numpy())
         assert err2 < 1e-2, "weight grads match"
+    err3 = np.linalg.norm(out2.detach().numpy() - y2.numpy())
     assert err3 < 1e-1, "outputs match %s, %s" % (y2, out2)
 
 

@@ -496,12 +496,51 @@ class Conv(TensorOp):
 
     def compute(self, A, B):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert len(A.shape) == len(B.shape) == 4, "Must be 4 dimensions"
+        assert A.shape[3] == B.shape[2], "Input channel size must match"
+        assert B.shape[0] == B.shape[1], "Kernel must be a square (same width and height)"
+        if self.padding:
+            A = A.pad(((0, 0), (self.padding, self.padding), (self.padding, self.padding), (0, 0)))
+
+        N, H, W, C_in = A.shape
+        K, _, _, C_out = B.shape
+        Ns, Hs, Ws, Cs = A.strides
+
+        H_new, W_new = (H - K + 1) // self.stride, (W - K + 1) // self.stride
+        Hs_new, Ws_new = Hs * self.stride, Ws * self.stride
+        outer_dim = N * H_new * W_new
+        inner_dim = K * K * C_in
+        A_im2col = A.as_strided((N, H_new, W_new, K, K, C_in), (Ns, Hs_new, Ws_new, Hs, Ws, Cs)).compact().reshape((outer_dim, inner_dim))
+        out = A_im2col @ B.compact().reshape((inner_dim, C_out))
+        return out.reshape((N, H_new, W_new, C_out))
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        """
+        Taking A and B as input. We could have out = A_im2col @ B.
+        A_im2col.grad = out_grad @ B.T
+        B.grad = A_im2col.T @ out_grad
+
+        And well, they are actually conv ops.
+        A.grad = conv(out_grad, B)
+        B.grad = conv(A, out_grad)
+        (With some small modifications)
+        1. Transpose could be achieved via flipping the kernel (both h and v for 2d case).
+        2.
+        """
+        A, B = node.inputs
+
+        K = B.shape[0]
+
+        B_flip = flip(B, (0, 1)).transpose()
+        if self.stride != 1:
+            out_grad = dilate(out_grad, axes=(1, 2), dilation=self.stride - 1)
+        A_grad = conv(out_grad, B_flip, padding=K - 1 - self.padding)
+        A_T = A.transpose((0, 3))
+        out_grad_T = out_grad.transpose((0, 1)).transpose((1, 2))
+        B_grad = conv(A_T, out_grad_T, padding=self.padding).transpose((0, 1)).transpose((1, 2))
+        return A_grad, B_grad
         ### END YOUR SOLUTION
 
 

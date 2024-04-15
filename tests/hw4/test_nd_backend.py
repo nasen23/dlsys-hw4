@@ -75,6 +75,7 @@ def test_scalar_fn(fn, shape, device):
 MATMUL_DIMS = [(16, 16, 16),
     (8, 8, 8),
     (1, 2, 3),
+    (3, 4, 1),
     (3, 4, 5),
     (5, 4, 3),
     (16, 16, 32),
@@ -82,12 +83,19 @@ MATMUL_DIMS = [(16, 16, 16),
     (72, 72, 72),
     (72, 73, 74),
     (74, 73, 72),
-    (128, 128, 128)]
+    (128, 128, 128),
+    (432, 72, 16),
+    (8, 4, 2),
+    (54, 9, 2),
+    (112, 65, 16),
+    (256, 256, 256),
+    (512, 512, 512),
+    (1024, 1024, 1024)]
 @pytest.mark.parametrize("m,n,p", MATMUL_DIMS)
 @pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
 def test_matmul(m, n, p, device):
-    _A = np.random.randn(m, n).astype(np.float32)
-    _B = np.random.randn(n, p).astype(np.float32)
+    _A = np.ones((m, n)).astype(np.float32)
+    _B = np.ones((n, p)).astype(np.float32)
     A = ndl.Tensor(nd.array(_A), device=device)
     B = ndl.Tensor(nd.array(_B), device=device)
     np.testing.assert_allclose(_A @ _B, (A @ B).numpy(), atol=1e-5, rtol=1e-5)
