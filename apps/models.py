@@ -7,16 +7,58 @@ import numpy as np
 np.random.seed(0)
 
 
+class ConvBN(ndl.nn.Module):
+    def __init__(self, a, b, k, s, device=None, dtype="float32") -> None:
+        self.a = a
+        self.b = b
+        self.k = k
+        self.s = s
+
+        self.conv2d = nn.Conv(a, b, k, s, device=device, dtype=dtype)
+        self.batch_norm = nn.BatchNorm2d(b, device=device, dtype=dtype)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv2d(x)
+        x = self.batch_norm(x)
+        return self.relu(x)
+
+
 class ResNet9(ndl.nn.Module):
     def __init__(self, device=None, dtype="float32"):
         super().__init__()
         ### BEGIN YOUR SOLUTION ###
-        raise NotImplementedError() ###
-        ### END YOUR SOLUTION
+        self.conv_layer1 = nn.Sequential(
+            ConvBN(3, 16, 7, 4, device=device, dtype=dtype),
+            ConvBN(16, 32, 3, 2, device=device, dtype=dtype),
+        )
+        self.conv_layer2 = nn.Sequential(
+            ConvBN(32, 32, 3, 1, device=device, dtype=dtype),
+            ConvBN(32, 32, 3, 1, device=device, dtype=dtype),
+        )
+        self.conv_layer3 = nn.Sequential(
+            ConvBN(32, 64, 3, 2, device=device, dtype=dtype),
+            ConvBN(64, 128, 3, 2, device=device, dtype=dtype),
+        )
+        self.conv_layer4 = nn.Sequential(
+            ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
+            ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
+        )
+        self.linear1 = nn.Linear(128, 128, device=device, dtype=dtype)
+        self.linear2 = nn.Linear(128, 10, device=device, dtype=dtype)
+        ### END YOUR SOLUTION ###
 
     def forward(self, x):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        x = self.conv_layer1(x)
+        x = nn.Residual(self.conv_layer2)(x)
+        x = self.conv_layer3(x)
+        x = nn.Residual(self.conv_layer4)(x)
+        x = nn.Flatten()(x)
+        x = self.linear1(x)
+        x = nn.ReLU()(x)
+        x = self.linear2(x)
+        return x
         ### END YOUR SOLUTION
 
 

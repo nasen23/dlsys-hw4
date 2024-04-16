@@ -90,12 +90,12 @@ class Linear(Module):
 
         ### BEGIN YOUR SOLUTION
         self.weight = Parameter(
-            kaiming_uniform(in_features, out_features, device=device, dtype=dtype)
+            init.kaiming_uniform(in_features, out_features, device=device, dtype=dtype)
         )
         if bias:
             # TODO: figure out why
             self.bias = Parameter(
-                kaiming_uniform(out_features, 1, device=device, dtype=dtype).reshape(
+                init.kaiming_uniform(out_features, 1, device=device, dtype=dtype).reshape(
                     (1, out_features)
                 )
             )
@@ -163,10 +163,10 @@ class BatchNorm1d(Module):
         self.eps = eps
         self.momentum = momentum
         ### BEGIN YOUR SOLUTION
-        self.weight = Parameter(init.ones(dim))
-        self.bias = Parameter(init.zeros(dim))
-        self.running_mean = init.zeros(dim)
-        self.running_var = init.ones(dim)
+        self.weight = Parameter(init.ones(dim, device=device, dtype=dtype))
+        self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype))
+        self.running_mean = init.zeros(dim, device=device, dtype=dtype)
+        self.running_var = init.ones(dim, device=device, dtype=dtype)
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
