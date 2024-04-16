@@ -302,8 +302,11 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        new_strides = list(self._strides)
-        for i, (new_size, size) in enumerate(zip(new_shape, self._shape)):
+        assert len(new_shape) >= len(self._shape), "Broadcasted shape should be longer"
+        # pad self._shape with 1 if new_shape is longer
+        pad_shape = [1] * (len(new_shape) - len(self._shape)) + list(self._shape)
+        new_strides = [0] * (len(new_shape) - len(self._shape)) + list(self._strides)
+        for i, (new_size, size) in enumerate(zip(new_shape, pad_shape)):
             if size != 1 and new_size != size:
                 raise AssertionError("Shape should be same with original if size is not 1, {} and {}".format(self._shape, new_shape))
             if new_size != size:

@@ -69,7 +69,7 @@ class Conv(Module):
             stride=self.stride,
         )
         if self.bias is not None:
-            out += self.bias.reshape((1, 1, 1, self.out_channels)).broadcast_to(out.shape)
+            out += self.bias.broadcast_to(out.shape)
         # convert back from (N, H, W, C) to (N, C, H, W)
         return out.transpose((2, 3)).transpose((1, 2))
         ### END YOUR SOLUTION
