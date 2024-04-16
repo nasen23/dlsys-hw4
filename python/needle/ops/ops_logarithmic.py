@@ -63,7 +63,7 @@ class LogSumExp(TensorOp):
         Z_sum = array_api.sum(Z_exp, axis=self.axes)
         Z_sum_broadcast = array_api.broadcast_to(Z_sum.reshape(shape), Z.shape)
         G = Z_exp / Z_sum_broadcast
-        return out_grad.reshape(shape).broadcast_to(Z.shape) * Tensor(G)
+        return out_grad.reshape(shape).broadcast_to(Z.shape) * Tensor(G, device=out_grad.device, dtype=out_grad.dtype)
         ### END YOUR SOLUTION
 
 

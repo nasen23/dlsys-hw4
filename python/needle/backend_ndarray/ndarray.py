@@ -564,9 +564,13 @@ class NDArray:
             if isinstance(axis, (tuple, list)):
                 # assert len(axis) == 1, "Only support reduction over a single axis"
                 # axis = axis[0]
-                axes = axis
+                axes = list(axis)
             else:
                 axes = [axis]
+
+            for i in range(len(axes)):
+                if axes[i] < 0:
+                    axes[i] = len(self.shape) + axes[i]
 
             # put these axes to last and flatten them
             shapes = [self.shape[axis] for axis in axes]

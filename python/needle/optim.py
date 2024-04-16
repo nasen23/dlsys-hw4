@@ -25,7 +25,16 @@ class SGD(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        for param in self.params:
+            g = param.grad.detach()
+            if self.weight_decay != 0.0:
+                g += self.weight_decay * param.detach()
+            if self.momentum != 0.0:
+                u = self.u.get(param) or ndl.init.zeros_like(g)
+                u = self.momentum * u + (1 - self.momentum) * g
+                g = u
+            param.data -= self.lr * g
+            self.u[param] = g
         ### END YOUR SOLUTION
 
     def clip_grad_norm(self, max_norm=0.25):
@@ -60,5 +69,22 @@ class Adam(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.t += 1
+        for param in self.params:
+            g = param.grad.detach()
+            if self.weight_decay != 0.0:
+                g += self.weight_decay * param.detach()
+            m = self.m.get(param) or ndl.init.zeros_like(g)
+            m = self.beta1 * m + (1 - self.beta1) * g
+            v = self.v.get(param) or ndl.init.zeros_like(g)
+            v = self.beta2 * v + (1 - self.beta2) * (g ** 2)
+            self.m[param] = m
+            self.v[param] = v
+
+            # bias correction
+            m = m / (1 - self.beta1 ** self.t)
+            v = v / (1 - self.beta2 ** self.t)
+
+            g = m / (v ** 0.5 + self.eps)
+            param.data -= self.lr * g
         ### END YOUR SOLUTION

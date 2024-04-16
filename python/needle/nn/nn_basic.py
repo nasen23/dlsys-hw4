@@ -1,12 +1,11 @@
 """The module.
 """
-from typing import List, Callable, Any
+from typing import List
 from needle.autograd import Tensor
-from needle import ops
 import needle.init as init
-import numpy as np
 
-from needle.ops.ops_mathematic import exp, relu
+from needle.ops.ops_mathematic import relu
+from needle.ops.ops_logarithmic import logsumexp
 
 class Parameter(Tensor):
     """A special kind of tensor that represents parameters."""
@@ -146,7 +145,7 @@ class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
         ### BEGIN YOUR SOLUTION
         # TODO: is there a better algorithm for this?
-        z_y = init.one_hot(logits.shape[-1], y)
+        z_y = init.one_hot(logits.shape[-1], y, device=logits.device, dtype=logits.dtype)
         logsum = logsumexp(logits, axes=(-1,))
         losses = logsum - (logits * z_y).sum(axes=(-1,))
         size = 1
@@ -207,8 +206,8 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        self.weight = Parameter(init.ones(dim))
-        self.bias = Parameter(init.zeros(dim))
+        self.weight = Parameter(init.ones(dim, device=device, dtype=dtype))
+        self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
