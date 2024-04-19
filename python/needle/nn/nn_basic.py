@@ -176,8 +176,8 @@ class BatchNorm1d(Module):
         if self.training:
             mu = x_mean
             sigma2 = x_var
-            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * x_mean
-            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * x_var
+            self.running_mean = ((1 - self.momentum) * self.running_mean + self.momentum * x_mean).detach()
+            self.running_var = ((1 - self.momentum) * self.running_var + self.momentum * x_var).detach()
         else:
             mu = self.running_mean
             sigma2 = self.running_var
