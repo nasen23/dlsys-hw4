@@ -71,15 +71,15 @@ class Adam(Optimizer):
         ### BEGIN YOUR SOLUTION
         self.t += 1
         for param in self.params:
-            g = param.grad.detach()
+            g = param.grad
             if self.weight_decay != 0.0:
-                g += self.weight_decay * param.detach()
+                g = (g + self.weight_decay * param).detach()
             m = self.m.get(param) or ndl.init.zeros_like(g)
             m = self.beta1 * m + (1 - self.beta1) * g
             v = self.v.get(param) or ndl.init.zeros_like(g)
             v = self.beta2 * v + (1 - self.beta2) * (g ** 2)
-            self.m[param] = m
-            self.v[param] = v
+            self.m[param] = m.detach()
+            self.v[param] = v.detach()
 
             # bias correction
             m = m / (1 - self.beta1 ** self.t)

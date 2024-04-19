@@ -110,12 +110,37 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is None:
+        model.eval()
+    else:
+        model.train()
+
+    losses = []
+    correct = 0
+    num_samples = 0
+    device = model.parameters()[0].device
+    for batch in dataloader:
+        X, y = batch[0].to(device), batch[1].to(device)
+        logits = model(X)
+        loss = loss_fn(logits, y)
+        losses.append(loss.numpy())
+
+        pred = np.argmax(logits.numpy(), axis=1)
+        correct += np.sum(pred == y.data.numpy())
+        num_samples += X.shape[0]
+
+        if opt is not None:
+            opt.reset_grad()
+            loss.backward()
+            opt.step()
+    acc = correct / num_samples
+    loss_avg = np.mean(losses)
+    return acc, loss_avg
     ### END YOUR SOLUTION
 
 
 def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
-          lr=0.001, weight_decay=0.001, loss_fn=nn.SoftmaxLoss):
+                  lr=0.001, weight_decay=0.001, loss_fn=nn.SoftmaxLoss()):
     """
     Performs {n_epochs} epochs of training.
 
@@ -134,11 +159,18 @@ def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    opt = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    acc, loss = None, None
+    for i in range(n_epochs):
+        acc, loss = epoch_general_cifar10(dataloader, model, opt=opt, loss_fn=loss_fn)
+        print(f"epoch {i}: acc {acc}, loss {loss}")
+
+    return acc, loss
     ### END YOUR SOLUTION
 
 
-def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
+def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss()):
     """
     Computes the test accuracy and loss of the model.
 
@@ -153,7 +185,8 @@ def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    acc, loss = epoch_general_cifar10(dataloader, model, loss_fn=loss_fn)
+    return acc, loss
     ### END YOUR SOLUTION
 
 

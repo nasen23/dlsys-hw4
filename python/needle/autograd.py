@@ -288,6 +288,9 @@ class Tensor(Value):
             return cpu()
         return data.device
 
+    def to(self, device):
+        return Tensor(self, device=device, dtype=self.dtype)
+
     def backward(self, out_grad=None):
         out_grad = (
             out_grad
