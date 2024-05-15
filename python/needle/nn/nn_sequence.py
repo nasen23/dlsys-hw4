@@ -19,6 +19,10 @@ class Sigmoid(Module):
         ### END YOUR SOLUTION
 
 
+def sigmoid(x):
+    return Sigmoid()(x)
+
+
 class RNNCell(Module):
     def __init__(
         self,
@@ -63,8 +67,9 @@ class RNNCell(Module):
         self.W_hh = Parameter(
             init.rand(hidden_size, hidden_size, low=-offset, high=offset)
         )
-        self.bias_ih = Parameter(init.rand(hidden_size, low=-offset, high=offset))
-        self.bias_hh = Parameter(init.rand(hidden_size, low=-offset, high=offset))
+        if self.bias:
+            self.bias_ih = Parameter(init.rand(hidden_size, low=-offset, high=offset))
+            self.bias_hh = Parameter(init.rand(hidden_size, low=-offset, high=offset))
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -196,7 +201,14 @@ class LSTMCell(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.hidden_size = hidden_size
+        self.bias = bias
+        offset = (1 / hidden_size) ** 0.5
+        self.W_ih = Parameter(init.rand(input_size, 4 * hidden_size, low=-offset, high=offset, device=device, dtype=dtype))
+        self.W_hh = Parameter(init.rand(hidden_size, 4 * hidden_size, low=-offset, high=offset, device=device, dtype=dtype))
+        if self.bias:
+            self.bias_ih = Parameter(init.rand(4 * hidden_size, low=-offset, high=offset, device=device, dtype=dtype))
+            self.bias_hh = Parameter(init.rand(4 * hidden_size, low=-offset, high=offset, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -216,7 +228,21 @@ class LSTMCell(Module):
             element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batch = X.shape[0]
+        y1 = X @ self.W_ih
+        y2 = init.zeros_like(y1) if h is None else h[0] @ self.W_hh
+        if self.bias:
+            y1 += self.bias_ih.broadcast_to((batch, 4 * self.hidden_size))
+            y2 += self.bias_hh.broadcast_to((batch, 4 * self.hidden_size))
+        Y = y1 + y2
+        Ys = list(ops.split(Y, axis=1))
+        i, f, g, o = [ops.stack(Ys[i:i+self.hidden_size], axis=1) for i in range(0, 4 * self.hidden_size, self.hidden_size)]
+        i, f, g, o = sigmoid(i), sigmoid(f), ops.tanh(g), sigmoid(o)
+        cn = i * g
+        if h is not None:
+            cn += f * h[1]
+        hn = o * ops.tanh(cn)
+        return hn, cn
         ### END YOUR SOLUTION
 
 
