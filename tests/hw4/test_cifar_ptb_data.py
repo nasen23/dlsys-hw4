@@ -58,6 +58,7 @@ def test_ptb_dataset(batch_size, bptt, train, device):
         data = ndl.data.batchify(corpus.train, batch_size, device=device, dtype="float32")
     else:
         data = ndl.data.batchify(corpus.test, batch_size, device=device, dtype="float32")
+    print(data.shape)
     X, y = ndl.data.get_batch(data, np.random.randint(len(data)), bptt, device=device)
     assert X.shape == (bptt, batch_size)
     assert y.shape == (bptt * batch_size,)
