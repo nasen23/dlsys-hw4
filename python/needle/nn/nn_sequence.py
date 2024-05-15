@@ -278,7 +278,13 @@ class LSTM(Module):
             of shape (4*hidden_size,).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+
+        self.lstm_cells = [
+            LSTMCell(input_size, hidden_size, bias, device=device, dtype=dtype)
+            for _ in range(num_layers)
+        ]
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -299,7 +305,24 @@ class LSTM(Module):
             h_n of shape (num_layers, bs, hidden_size) containing the final hidden cell state for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        seq_len, bs, _, = X.shape
+        h0, c0 = h or (init.zeros(self.num_layers, bs, self.hidden_size, device=X.device, dtype=X.dtype), init.zeros(self.num_layers, bs, self.hidden_size, device=X.device, dtype=X.dtype))
+        h0_s, c0_s = ops.split(h0, axis=0), ops.split(c0, axis=0)
+        H = X
+        h_n, c_n = [], []
+        for i in range(self.num_layers):
+            Hs = ops.split(H, axis=0)
+            h, c = h0_s[i], c0_s[i]
+            hs = []
+            for t in range(seq_len):
+                h, c = self.lstm_cells[i](Hs[t], (h, c))
+                hs.append(h)
+            h_n.append(h)
+            c_n.append(c)
+            H = ops.stack(tuple(hs), axis=0)
+        h_n, c_n = ops.stack(tuple(h_n), axis=0), ops.stack(tuple(c_n), axis=0)
+        return H, (h_n, c_n)
+
         ### END YOUR SOLUTION
 
 
