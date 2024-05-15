@@ -5,7 +5,8 @@ from needle.autograd import Tensor
 from needle import ops
 import needle.init as init
 import numpy as np
-from .nn_basic import Parameter, Module
+
+from .nn_basic import Parameter, Module, ReLU
 
 
 class Sigmoid(Module):
@@ -14,11 +15,20 @@ class Sigmoid(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return init.ones_like(x) / (ops.exp(-x) + 1)
         ### END YOUR SOLUTION
 
+
 class RNNCell(Module):
-    def __init__(self, input_size, hidden_size, bias=True, nonlinearity='tanh', device=None, dtype="float32"):
+    def __init__(
+        self,
+        input_size,
+        hidden_size,
+        bias=True,
+        nonlinearity="tanh",
+        device=None,
+        dtype="float32",
+    ):
         """
         Applies an RNN cell with tanh or ReLU nonlinearity.
 
@@ -38,7 +48,23 @@ class RNNCell(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.bias = bias
+        if nonlinearity == "relu":
+            self.fn = ReLU()
+        elif nonlinearity == "tanh":
+            self.fn = ops.Tanh()
+
+        offset = (1 / hidden_size) ** 0.5
+        self.W_ih = Parameter(
+            init.rand(input_size, hidden_size, low=-offset, high=offset)
+        )
+        self.W_hh = Parameter(
+            init.rand(hidden_size, hidden_size, low=-offset, high=offset)
+        )
+        self.bias_ih = Parameter(init.rand(hidden_size, low=-offset, high=offset))
+        self.bias_hh = Parameter(init.rand(hidden_size, low=-offset, high=offset))
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -53,12 +79,31 @@ class RNNCell(Module):
             for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        bs = X.shape[0]
+        y1 = X @ self.W_ih
+        if h is None:
+            y2 = init.zeros_like(y1)
+        else:
+            y2 = h @ self.W_hh
+        if self.bias:
+            y1 += self.bias_ih.broadcast_to((bs, self.hidden_size))
+            y2 += self.bias_hh.broadcast_to((bs, self.hidden_size))
+        y = y1 + y2
+        return self.fn(y)
         ### END YOUR SOLUTION
 
 
 class RNN(Module):
-    def __init__(self, input_size, hidden_size, num_layers=1, bias=True, nonlinearity='tanh', device=None, dtype="float32"):
+    def __init__(
+        self,
+        input_size,
+        hidden_size,
+        num_layers=1,
+        bias=True,
+        nonlinearity="tanh",
+        device=None,
+        dtype="float32",
+    ):
         """
         Applies a multi-layer RNN with tanh or ReLU non-linearity to an input sequence.
 
@@ -82,7 +127,19 @@ class RNN(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.rnn_cells = [
+            RNNCell(
+                input_size if k == 0 else hidden_size,
+                hidden_size,
+                bias=bias,
+                nonlinearity=nonlinearity,
+                device=device,
+                dtype=dtype,
+            )
+            for k in range(num_layers)
+        ]
         ### END YOUR SOLUTION
 
     def forward(self, X, h0=None):
@@ -98,12 +155,29 @@ class RNN(Module):
         h_n of shape (num_layers, bs, hidden_size) containing the final hidden state for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        seq_len, bs, _, = X.shape
+        h0 = h0 or init.zeros(self.num_layers, bs, self.hidden_size, device=X.device, dtype=X.dtype)
+        h0_s = ops.split(h0, axis=0)
+        H = X
+        h_n = []
+        for i in range(self.num_layers):
+            Hs = ops.split(H, axis=0)
+            h = h0_s[i]
+            hs = []
+            for t in range(seq_len):
+                h = self.rnn_cells[i](Hs[t], h)
+                hs.append(h)
+            h_n.append(h)
+            H = ops.stack(tuple(hs), axis=0)
+        h_n = ops.stack(tuple(h_n), axis=0)
+        return H, h_n
         ### END YOUR SOLUTION
 
 
 class LSTMCell(Module):
-    def __init__(self, input_size, hidden_size, bias=True, device=None, dtype="float32"):
+    def __init__(
+        self, input_size, hidden_size, bias=True, device=None, dtype="float32"
+    ):
         """
         A long short-term memory (LSTM) cell.
 
@@ -124,7 +198,6 @@ class LSTMCell(Module):
         ### BEGIN YOUR SOLUTION
         raise NotImplementedError()
         ### END YOUR SOLUTION
-
 
     def forward(self, X, h=None):
         """
@@ -148,7 +221,15 @@ class LSTMCell(Module):
 
 
 class LSTM(Module):
-    def __init__(self, input_size, hidden_size, num_layers=1, bias=True, device=None, dtype="float32"):
+    def __init__(
+        self,
+        input_size,
+        hidden_size,
+        num_layers=1,
+        bias=True,
+        device=None,
+        dtype="float32",
+    ):
         super().__init__()
         """
         Applies a multi-layer long short-term memory (LSTM) RNN to an input sequence.
@@ -194,6 +275,7 @@ class LSTM(Module):
         ### BEGIN YOUR SOLUTION
         raise NotImplementedError()
         ### END YOUR SOLUTION
+
 
 class Embedding(Module):
     def __init__(self, num_embeddings, embedding_dim, device=None, dtype="float32"):
