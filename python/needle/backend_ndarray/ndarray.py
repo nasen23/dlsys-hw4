@@ -176,7 +176,7 @@ class NDArray:
         return prod(self._shape)
 
     def __repr__(self):
-        return "NDArray(" + self.numpy().__str__() + f", device={self.device})"
+        return "NDArray(" + self.numpy().__str__() + f", shape={self.shape}, device={self.device})"
 
     def __str__(self):
         return self.numpy().__str__()
