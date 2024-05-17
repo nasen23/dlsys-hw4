@@ -11,6 +11,7 @@ import needle as ndl
 
 import needle.nn as nn
 from apps.models import *
+from needle.data.datasets.ptb_dataset import *
 import time
 device = ndl.cpu()
 
@@ -213,7 +214,30 @@ def epoch_general_ptb(data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=Non
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is None:
+        model.eval()
+    else:
+        model.train()
+    losses = []
+    correct, num_samples = 0, 0
+    for i in range(len(data) - seq_len):
+        x, label = get_batch(data, i, seq_len, device=device, dtype=dtype)
+        y, _ = model(x)
+        loss = loss_fn()(y, label)
+        pred = np.argmax(y.numpy(), axis=1)
+        correct += np.sum(pred == label.numpy())
+        num_samples += x.shape[0] * x.shape[1]
+        if opt is not None:
+            opt.reset_grad()
+            loss.backward()
+            if clip is not None:
+                opt.clip_grad_norm(max_norm=clip)
+            opt.step()
+        losses.append(loss.numpy())
+
+    avg_acc = correct / num_samples
+    avg_loss = np.mean(losses)
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
 
@@ -240,7 +264,12 @@ def train_ptb(model, data, seq_len=40, n_epochs=1, optimizer=ndl.optim.SGD,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    opt = optimizer(model.parameters())
+    avg_acc, avg_loss = None, None
+    for epoch in range(n_epochs):
+        acc, loss = epoch_general_ptb(data, model, seq_len=seq_len, loss_fn=loss_fn, opt=opt, clip=clip, device=device, dtype=dtype)
+        print(f"epoch {epoch}: acc {acc}, loss {loss}")
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
 def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss,
@@ -260,7 +289,7 @@ def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    return epoch_general_ptb(data, model, seq_len=seq_len, loss_fn=loss_fn, device=device, dtype=dtype)
     ### END YOUR SOLUTION
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT

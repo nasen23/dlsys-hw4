@@ -42,7 +42,11 @@ class SGD(Optimizer):
         Clips gradient norm of parameters.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        for param in self.params:
+            g = param.grad.detach()
+            norm = (g ** 2).sum().detach()
+            if norm > max_norm:
+                param.grad = param.grad / (norm / max_norm) ** 0.5
         ### END YOUR SOLUTION
 
 
