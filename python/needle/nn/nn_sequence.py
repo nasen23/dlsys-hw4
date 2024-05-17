@@ -62,14 +62,14 @@ class RNNCell(Module):
 
         offset = (1 / hidden_size) ** 0.5
         self.W_ih = Parameter(
-            init.rand(input_size, hidden_size, low=-offset, high=offset)
+            init.rand(input_size, hidden_size, low=-offset, high=offset, device=device, dtype=dtype)
         )
         self.W_hh = Parameter(
-            init.rand(hidden_size, hidden_size, low=-offset, high=offset)
+            init.rand(hidden_size, hidden_size, low=-offset, high=offset, device=device, dtype=dtype)
         )
         if self.bias:
-            self.bias_ih = Parameter(init.rand(hidden_size, low=-offset, high=offset))
-            self.bias_hh = Parameter(init.rand(hidden_size, low=-offset, high=offset))
+            self.bias_ih = Parameter(init.rand(hidden_size, low=-offset, high=offset, device=device, dtype=dtype))
+            self.bias_hh = Parameter(init.rand(hidden_size, low=-offset, high=offset, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -282,8 +282,8 @@ class LSTM(Module):
         self.num_layers = num_layers
 
         self.lstm_cells = [
-            LSTMCell(input_size, hidden_size, bias, device=device, dtype=dtype)
-            for _ in range(num_layers)
+            LSTMCell(input_size if k == 0 else hidden_size, hidden_size, bias, device=device, dtype=dtype)
+            for k in range(num_layers)
         ]
         ### END YOUR SOLUTION
 
@@ -322,7 +322,6 @@ class LSTM(Module):
             H = ops.stack(tuple(hs), axis=0)
         h_n, c_n = ops.stack(tuple(h_n), axis=0), ops.stack(tuple(c_n), axis=0)
         return H, (h_n, c_n)
-
         ### END YOUR SOLUTION
 
 
@@ -341,7 +340,9 @@ class Embedding(Module):
             initialized from N(0, 1).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.weight = Parameter(init.randn(num_embeddings, embedding_dim, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
@@ -355,5 +356,7 @@ class Embedding(Module):
         output of shape (seq_len, bs, embedding_dim)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        seq_len, bs = x.shape
+        X = init.one_hot(self.num_embeddings, x, device=x.device, dtype=x.dtype)
+        return (X.reshape((seq_len * bs, self.num_embeddings)) @ self.weight).reshape((seq_len, bs, self.embedding_dim))
         ### END YOUR SOLUTION
