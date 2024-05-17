@@ -220,7 +220,8 @@ def epoch_general_ptb(data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=Non
         model.train()
     losses = []
     correct, num_samples = 0, 0
-    for i in range(len(data) - seq_len):
+    from tqdm import tqdm
+    for i in tqdm(range(len(data) - seq_len)):
         x, label = get_batch(data, i, seq_len, device=device, dtype=dtype)
         y, _ = model(x)
         loss = loss_fn()(y, label)
@@ -267,6 +268,7 @@ def train_ptb(model, data, seq_len=40, n_epochs=1, optimizer=ndl.optim.SGD,
     opt = optimizer(model.parameters())
     avg_acc, avg_loss = None, None
     for epoch in range(n_epochs):
+        print(f"start epoch {epoch}")
         acc, loss = epoch_general_ptb(data, model, seq_len=seq_len, loss_fn=loss_fn, opt=opt, clip=clip, device=device, dtype=dtype)
         print(f"epoch {epoch}: acc {acc}, loss {loss}")
     return avg_acc, avg_loss
